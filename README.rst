@@ -37,7 +37,6 @@ Usage
 
 TODO
 ====
-#. Forward ``/me`` message from IRC to Telegram. It is simple but I am lazy.
 
 License
 =======

@@ -175,7 +175,7 @@ def irc_init():
 
     # use a replacement character for unrecognized byte sequences
     # see <https://pypi.python.org/pypi/irc>
-    irc.client.ServerConnection.buffer_class.errors = '?'
+    irc.client.ServerConnection.buffer_class.errors = 'replace'
 
     reactor = irc.client.Reactor()
 
@@ -195,6 +195,7 @@ def irc_init():
     irc_conn.add_global_handler("join", on_join)
     irc_conn.add_global_handler("privmsg", on_privmsg)
     irc_conn.add_global_handler("pubmsg", on_privmsg)
+    irc_conn.add_global_handler("action", on_privmsg)
     irc_conn.add_global_handler("disconnect", on_disconnect)
     irc_conn.add_global_handler("nicknameinuse", on_nickinuse)
 
