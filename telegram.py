@@ -12,7 +12,7 @@ class Telegram(object):
         self.msg_re = re.compile(MSG_RE)
         self.buf = ''
 
-    def __destory__(self):
+    def __del__(self):
         self.sock.close()
 
     def _socket_init(self, ip_addr, port):
@@ -32,6 +32,14 @@ class Telegram(object):
         peer = peer.replace(' ', '_')
         cmd = 'msg ' + peer + ' ' + msg;
         self.send_cmd(cmd)
+
+    def send_user_msg(self, userid, msg):
+        peer = 'user#' + userid
+        self.send_msg(peer, msg)
+
+    def send_chat_msg(self, chatid, msg):
+        peer = 'chat#' + chatid
+        self.send_msg(peer, msg)
 
     def parse_msg(self, msg):
         """Parse message.

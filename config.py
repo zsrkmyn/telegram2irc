@@ -13,6 +13,6 @@ config = {
 
     'bindings':(
         ('#linuxba', 'chat#8531126') ,
-        ('#archlinux-cn', 'chat#12889958'),
+    #    ('#archlinux-cn', 'chat#12889958'),
     )
 }
