@@ -12,9 +12,11 @@ from telegram import Telegram
 from config import config
 
 help_txt = {
-    'all'  : 'current avaliable commands are: nick, help',
+    'all'  : 'current avaliable commands are: nick, help, join, list',
     'help' : 'help [command] => show help message (for `command`).',
-    'nick' : 'nick [new_nick] => change your nick to `new_nick`.',
+    'nick' : 'nick <new_nick> => change your nick to `new_nick`, no space allowed.',
+    'join' : 'join <channel> [channel [channel [...]]] => join `channel`s. use `list` to list channel.',
+    'list' : 'list => list all avaliable chats.',
 }
 
 msg_format = '[{nick}]: {msg}'
@@ -71,11 +73,11 @@ def main_loop():
                 # msg is from user and is not a command
                 irc_target = get_irc_binding('user#'+msg[2])
 
-            nick = get_usernick_from_id(msg[2])
-            if nick is None:
-                nick = msg[2]
 
             if irc_target is not None:
+                nick = get_usernick_from_id(msg[2])
+                if nick is None:
+                    nick = msg[2]
                 irc_conn.privmsg(irc_target, msg_format.format(nick=nick, msg=msg[3]))
 
     connection.quit("Bye")
@@ -112,6 +114,19 @@ def send_help(userid, help='all'):
 
     tele_conn.send_user_msg(userid, m)
 
+def invite_to_join(userid, chatlist):
+    for c in chatlist:
+        chat = get_tele_binding(c)
+
+        if chat is not None:
+            cmd = 'chat_add_user {chat} {user} 0'.format(
+                    chat = chat,
+                    user = 'user#' + userid
+                    )
+            tele_conn.send_cmd(cmd)
+        else:
+            tele_conn.send_user_msg(userid, '{0} is not avaliable. Use `.list` to see avaliable channels'.format(c))
+
 def handle_command(msg):
     if not msg[3].startswith('.'):
         return
@@ -134,7 +149,15 @@ def handle_command(msg):
         try:
             send_help(userid, args[0])
         except IndexError:
-            send_help(userid)
+            send_help(userid, 'help')
+        send_help(userid)
+    elif cmd == 'join':
+        if len(args) == 0:
+            send_help(userid, 'join')
+        invite_to_join(userid, args)
+    elif cmd == 'list':
+        chan = ', '.join([i[0] for i in bindings])
+        tele_conn.send_user_msg(userid, chan)
     else:
         send_help(userid)
 
@@ -188,6 +211,7 @@ def main():
     global tele_me
 
     bindings = config['bindings']
+    load_usernicks()
 
     irc_init()
 

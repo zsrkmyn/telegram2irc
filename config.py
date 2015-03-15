@@ -2,7 +2,7 @@ config = {
     'irc': {
         'server': 'irc.freenode.net',
         'port'  : 6667              ,
-        'nick'  : 'telebot'         ,
+        'nick'  : 'LittleSen'       ,
     },
 
     'telegram': {
@@ -13,6 +13,6 @@ config = {
 
     'bindings':(
         ('#linuxba', 'chat#8531126') ,
-    #    ('#archlinux-cn', 'chat#12889958'),
+        ('#archlinux-cn', 'chat#12889958'),
     )
 }
