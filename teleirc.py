@@ -5,6 +5,7 @@ import argparse
 import itertools
 import threading
 import pickle
+import ssl
 
 import irc.client
 
@@ -19,7 +20,7 @@ help_txt = {
     'list' : 'list => list all avaliable chats.',
 }
 
-msg_format = '[{nick}]: {msg}'
+msg_format = '[{nick}] {msg}'
 
 tele_conn = None
 irc_conn = None
@@ -80,7 +81,8 @@ def main_loop():
                     nick = msg[2]
                 irc_conn.privmsg(irc_target, msg_format.format(nick=nick, msg=msg[3]))
 
-    connection.quit("Bye")
+    irc_conn.quit("Bye")
+    exit(0)
 
 def get_irc_binding(tele_chat):
     for b in bindings:
@@ -169,14 +171,23 @@ def irc_init():
     server = config['irc']['server']
     port = config['irc']['port']
     nickname = config['irc']['nick']
+    usessl = config['irc']['ssl']
 
     # use a replacement character for unrecognized byte sequences
     # see <https://pypi.python.org/pypi/irc>
     irc.client.ServerConnection.buffer_class.errors = '?'
 
     reactor = irc.client.Reactor()
+
+    if usessl:
+        ssl_factory = irc.connection.Factory(wrapper=ssl.wrap_socket)
+
     try:
-        irc_conn = reactor.server().connect(server, port, nickname)
+        if usessl:
+            irc_conn = reactor.server().connect(server, port, nickname,
+                                                connect_factory=ssl_factory)
+        else:
+            irc_conn = reactor.server().connect(server, port, nickname)
     except irc.client.ServerConnectionError:
         print(sys.exc_info()[1])
 

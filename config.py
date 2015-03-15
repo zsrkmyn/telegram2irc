@@ -1,8 +1,9 @@
 config = {
     'irc': {
         'server': 'irc.freenode.net',
-        'port'  : 6667              ,
+        'port'  : 6697              ,
         'nick'  : 'LittleSen'       ,
+        'ssl'   : True,
     },
 
     'telegram': {
