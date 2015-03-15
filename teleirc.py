@@ -189,6 +189,15 @@ def irc_init():
 
     threading.Thread(target=reactor.process_forever, args=(None,)).start()
 
+def tele_init():
+    global tele_conn
+    global tele_me
+
+    server = config['telegram']['server']
+    port = config['telegram']['port']
+    tele_me = config['telegram']['me'].replace('user#', '')
+    tele_conn = Telegram(server, port)
+
 def load_usernicks():
     global usernicks
     try:
@@ -206,17 +215,13 @@ def save_usernicks():
         pass
 
 def main():
-    global tele_conn
     global bindings
-    global tele_me
-
     bindings = config['bindings']
     load_usernicks()
 
     irc_init()
+    tele_init()
 
-    tele_me = config['telegram']['me'].replace('user#', '')
-    tele_conn = Telegram('127.0.0.1', 1235)
     main_loop()
 
 if __name__ == '__main__':

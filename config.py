@@ -7,7 +7,7 @@ config = {
 
     'telegram': {
         'server': '127.0.0.1'       ,
-        'port'  : '1235'            ,
+        'port'  : 1235              ,
         'me'    : 'user#107279837'  ,
     },
 
