@@ -13,11 +13,11 @@ from telegram import Telegram
 from config import config
 
 help_txt = {
-    'all'  : 'current avaliable commands are: nick, help, join, list',
-    'help' : 'help [command] => show help message (for `command`).',
-    'nick' : 'nick <new_nick> => change your nick to `new_nick`, no space allowed.',
-    'join' : 'join <channel> [channel [channel [...]]] => join `channel`s. use `list` to list channel.',
-    'list' : 'list => list all avaliable chats.',
+    'all'  : 'current avaliable commands are: .nick, .help, .join, .list',
+    'help' : '.help [command] => show help message (for `command`).',
+    'nick' : '.nick <new_nick> => change your nick to `new_nick`, no space allowed.',
+    'join' : '.join <channel> [channel [channel [...]]] => join `channel`(s). Use `.list` to list avaliable channels.',
+    'list' : '.list => list all avaliable chats.',
 }
 
 msg_format = '[{nick}] {msg}'
@@ -36,10 +36,10 @@ def on_connect(connection, event):
             connection.join(c)
 
 def on_join(connection, event):
-    print(event.source + ' ' + event.target)
+    print('[irc] ', event.source + ' ' + event.target)
 
 def on_privmsg(connection, event):
-    print(event.source + ' ' + event.target + ' ' + event.arguments[0])
+    print('[irc] ', event.source + ' ' + event.target + ' ' + event.arguments[0])
     tele_target = get_tele_binding(event.target)
     if tele_target is not None:
         tele_conn.send_msg(
@@ -57,32 +57,55 @@ def on_disconnect(connection, event):
     raise SystemExit()
 
 def main_loop():
-    while True:
-        msg = tele_conn.recv_one_msg()
-        if msg == -1:
-            break
+    def irc_thread():
+        while True: # restart automatically while error occours
+            try:
+                reactor = irc_init()
+                reactor.process_forever(None)
+            except Exception as e:
+                print(e)
+                print('Restarting IRC...')
 
-        elif msg is not None and msg[2] != tele_me:
-            if msg[1] is not None:
-                # msg is from chat group
-                irc_target = get_irc_binding('chat#'+msg[1])
-            elif msg[3].startswith('.'):
-                # msg is from user and is a command
-                handle_command(msg)
-                irc_target = None
-            else:
-                # msg is from user and is not a command
-                irc_target = get_irc_binding('user#'+msg[2])
+    def tele_thread():
+        tele_init()
+        while True:
+            msg = tele_conn.recv_one_msg()
+            if msg == -1:
+                break
 
+            elif msg is not None and msg[2] != tele_me:
+                print('[tel] ', *msg)
+                if msg[1] is not None:
+                    # msg is from chat group
+                    irc_target = get_irc_binding('chat#'+msg[1])
+                elif msg[3].startswith('.'):
+                    # msg is from user and is a command
+                    handle_command(msg)
+                    irc_target = None
+                elif re.match(r'.?help\s*$', msg[3]):
+                    # msg is from user and user needs help
+                    send_help(msg[2])
+                    irc_target = None
+                else:
+                    # msg is from user and is not a command
+                    irc_target = get_irc_binding('user#'+msg[2])
 
-            if irc_target is not None:
-                nick = get_usernick_from_id(msg[2])
-                if nick is None:
-                    nick = msg[2]
-                irc_conn.privmsg(irc_target, msg_format.format(nick=nick, msg=msg[3]))
+                if irc_target is not None:
+                    nick = get_usernick_from_id(msg[2])
+                    if nick is None:
+                        nick = msg[2]
+                    irc_conn.privmsg(irc_target, msg_format.format(nick=nick, msg=msg[3]))
 
-    irc_conn.quit("Bye")
-    exit(0)
+    tasks = []
+    for i in (irc_thread, tele_thread):
+        t = threading.Thread(target=i, args=())
+        t.setDaemon(True)
+        t.start()
+        tasks.append(t)
+
+    for t in tasks:
+        t.join()
+
 
 def get_irc_binding(tele_chat):
     for b in bindings:
@@ -152,7 +175,7 @@ def handle_command(msg):
             send_help(userid, args[0])
         except IndexError:
             send_help(userid, 'help')
-        send_help(userid)
+            send_help(userid)
     elif cmd == 'join':
         if len(args) == 0:
             send_help(userid, 'join')
@@ -199,7 +222,7 @@ def irc_init():
     irc_conn.add_global_handler("disconnect", on_disconnect)
     irc_conn.add_global_handler("nicknameinuse", on_nickinuse)
 
-    threading.Thread(target=reactor.process_forever, args=(None,)).start()
+    return reactor
 
 def tele_init():
     global tele_conn
@@ -231,10 +254,17 @@ def main():
     bindings = config['bindings']
     load_usernicks()
 
-    irc_init()
-    tele_init()
-
-    main_loop()
+    try:
+        main_loop()
+    except KeyboardInterrupt:
+        try:
+            irc_conn.quit('Bye')
+            irc_conn = None
+            tele_conn = None # to call __del__ method of Telegram to close connection
+        except Exception:
+            pass
+    finally:
+        print('Bye.')
 
 if __name__ == '__main__':
     main()
