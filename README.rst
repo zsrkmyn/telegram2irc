@@ -40,4 +40,4 @@ TODO
 
 License
 =======
-This software is released with MIT License. See ``LICENSE`` file to get more details.
+This software is released with MIT License. See ``LICENSE`` file for more details.
