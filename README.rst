@@ -9,7 +9,7 @@ Dependencies
 
 Usage
 =====
-#. If you have not used telegram-cli before, run in first, and set the correct phone number
+#. If you have not used telegram-cli before, run it first, and set the correct phone number
    to log in.
 
 #. Create chat groups using ``create_group_chat`` command in ``telegram-cli``, and use
