@@ -4,6 +4,9 @@ config = {
         'port'  : 6697              ,
         'nick'  : 'LittleSen'       ,
         'ssl'   : True,
+        'blacklist': [
+            '[Olaf]',
+        ],
     },
 
     'telegram': {

@@ -29,6 +29,8 @@ usernicks = {}
 irc_channels = []
 tele_me = None
 
+irc_blacklist = []
+
 def on_connect(connection, event):
     for c in irc_channels:
         if irc.client.is_channel(c):
@@ -39,13 +41,17 @@ def on_join(connection, event):
 
 def on_privmsg(connection, event):
     print('[irc] ', event.source + ' ' + event.target + ' ' + event.arguments[0])
+
     tele_target = get_tele_binding(event.target)
-    if tele_target is not None:
+    irc_nick = event.source[:event.source.index('!')]
+    msg = event.arguments[0]
+
+    if tele_target is not None and irc_nick not in irc_blacklist:
         tele_conn.send_msg(
                 tele_target,
                 msg_format.format(
-                    nick=event.source[:event.source.index('!')],
-                    msg = event.arguments[0]
+                    nick = irc_nick,
+                    msg = msg
                 )
         )
 
@@ -250,7 +256,10 @@ def save_usernicks():
 
 def main():
     global bindings
+    global irc_blacklist
+
     bindings = config['bindings']
+    irc_blacklist = config['irc']['blacklist']
     load_usernicks()
 
     try:

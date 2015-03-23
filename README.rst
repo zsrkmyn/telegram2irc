@@ -23,8 +23,10 @@ Usage
 #. Edit the ``config.py`` file.
 
    #. Set the ``me`` to your IDs to avoid the bot sending duplicated message.
-   #. Set ``bindings`` to bind IRC channels with Telegram chats. Elements in ``binddings`` tuple 
+   #. Set ``bindings`` to bind IRC channels with Telegram chats. Elements in ``binddings`` tuple
       are tuples, whose first element is IRC channel and the second element is Telegram chat ID.
+   #. ``blacklist`` in ``irc`` is a list which contains some nicks in IRC. The messages of these
+      nicks won't be forwarded to Telegram.
 
 #. Start the ``telegram-cli`` using ``telegram -I -d -P <port>``, where ``<port>`` is the telegram
    client port you filled in ``config.py`` file, and ``-I`` is needed, ``-d`` is optional.
