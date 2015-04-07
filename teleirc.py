@@ -264,7 +264,7 @@ def main():
 
     try:
         main_loop()
-    except KeyboardInterrupt:
+    except Exception:
         try:
             irc_conn.quit('Bye')
             irc_conn = None
