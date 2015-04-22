@@ -99,7 +99,9 @@ def main_loop():
                     nick = get_usernick_from_id(msg[2])
                     if nick is None:
                         nick = msg[2]
-                    irc_conn.privmsg(irc_target, msg_format.format(nick=nick, msg=msg[3]))
+                    lines = msg[3].split('\n')
+                    for line in lines:
+                        irc_conn.privmsg(irc_target, msg_format.format(nick=nick, msg=line))
 
     tasks = []
     for i in (irc_thread, tele_thread):
