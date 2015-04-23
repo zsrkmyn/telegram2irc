@@ -9,7 +9,7 @@ class Telegram(object):
     def __init__(self, ip_addr='127.0.0.1', port='4444'):
         self._socket_init(ip_addr, port)
         self.main_session()
-        self.msg_re = re.compile(MSG_RE, re.M)
+        self.msg_re = re.compile(MSG_RE, re.DOTALL)
         self.buf = ''
 
     def __del__(self):
@@ -44,7 +44,7 @@ class Telegram(object):
     def parse_msg(self, msg):
         """Parse message.
 
-        Retuns:
+        Returns:
             (time, chatID, userID, content) if 'msg' is normal.
             None if else.
         """
@@ -59,45 +59,43 @@ class Telegram(object):
         """Receive one message.
 
         Returns:
-            None if needs to receive more or is not a message.
             -1 if connection is closed.
             (time, chatID, userID, content) if normal.
         """
-        try:
-            pos = self.buf.index('\n\n')
-        except ValueError:
+        while True:
             ret = self.sock.recv(4096)
 
             if '' == ret:
-                return None
+                return -1
 
             try:
                 self.buf += ret.decode('utf-8')
             except UnicodeDecodeError:
                 self.buf = ''
 
-        try:
-            pos = self.buf.index('\n\n')
-        except ValueError:
-            # needs to recv more.
-            return -1
+            while True:
+                try:
+                    pos = self.buf.index('\n\n')
+                except ValueError:
+                    # needs to recv more.
+                    break
 
-        line = self.buf[:pos]
-        self.buf = self.buf[pos + 2:]
+                line = self.buf[:pos]
+                self.buf = self.buf[pos + 2:]
 
-        msg = self.parse_msg(line)
+                msg = self.parse_msg(line)
 
-        try:
-            if msg[1] is not None:
-                target = 'chat#' + msg[1]
-            else:
-                target = 'user#' + msg[2]
-            self.send_cmd('mark_read ' + target)
-        except TypeError:
-            # msg is None
-            pass
+                try:
+                    if msg[1] is not None:
+                        target = 'chat#' + msg[1]
+                    else:
+                        target = 'user#' + msg[2]
+                    self.send_cmd('mark_read ' + target)
+                    return msg
+                except TypeError:
+                    # is not a message
+                    pass
 
-        return msg
 
 if __name__ == '__main__':
     tele = Telegram('127.0.0.1', 1235)
@@ -107,8 +105,6 @@ if __name__ == '__main__':
         if ret == -1:
             print('Connect closed')
             break
-        elif ret is None:
-            print('Not a user message or needs to recieve more')
         else:
             print(ret)
     tele = None
