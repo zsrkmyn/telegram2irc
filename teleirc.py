@@ -63,13 +63,8 @@ def on_disconnect(connection, event):
 
 def main_loop():
     def irc_thread():
-        while True: # restart automatically while error occours
-            try:
-                reactor = irc_init()
-                reactor.process_forever(None)
-            except Exception as e:
-                print(e)
-                print('Restarting IRC...')
+        reactor = irc_init()
+        reactor.process_forever(None)
 
     def tele_thread():
         tele_init()
