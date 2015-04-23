@@ -3,13 +3,13 @@
 from socket import socket, AF_INET, SOCK_STREAM
 import re
 
-MSG_RE = r'\[(\d{2}:\d{2})\]\s+(chat#(\d+))?\s+user#(\d+)\s+>>>\s+(.*)'
+MSG_RE = r'ANSWER\s+\d+\n\[(\d{2}:\d{2})\]\s+(chat#(\d+))?\s+user#(\d+)\s+>>>\s+(.*)'
 
 class Telegram(object):
     def __init__(self, ip_addr='127.0.0.1', port='4444'):
         self._socket_init(ip_addr, port)
         self.main_session()
-        self.msg_re = re.compile(MSG_RE)
+        self.msg_re = re.compile(MSG_RE, re.M)
         self.buf = ''
 
     def __del__(self):
@@ -64,7 +64,7 @@ class Telegram(object):
             (time, chatID, userID, content) if normal.
         """
         try:
-            pos = self.buf.index('\n')
+            pos = self.buf.index('\n\n')
         except ValueError:
             ret = self.sock.recv(4096)
 
@@ -77,13 +77,13 @@ class Telegram(object):
                 self.buf = ''
 
         try:
-            pos = self.buf.index('\n')
+            pos = self.buf.index('\n\n')
         except ValueError:
             # needs to recv more.
             return -1
 
         line = self.buf[:pos]
-        self.buf = self.buf[pos + 1:]
+        self.buf = self.buf[pos + 2:]
 
         msg = self.parse_msg(line)
 
@@ -108,7 +108,7 @@ if __name__ == '__main__':
             print('Connect closed')
             break
         elif ret is None:
-            print('No a user message or needs to recieve more')
+            print('Not a user message or needs to recieve more')
         else:
             print(ret)
     tele = None
