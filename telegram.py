@@ -4,12 +4,19 @@ from socket import socket, AF_INET, SOCK_STREAM
 import re
 
 MSG_RE = r'ANSWER\s+\d+\n\[(\d{2}:\d{2})\]\s+(chat#(\d+))?\s+user#(\d+)\s+>>>\s+(.*)'
+USER_INFO_RE = (
+    r"ANSWER\s+\d+\n"
+    r'User\s+user#(\d+)\s+@([a-zA-Z0-9_\-]*)\s+\(#\d+\):\n'
+    r"\s+real\s+name:\s(.+)\n.*"
+)
+
 
 class Telegram(object):
     def __init__(self, ip_addr='127.0.0.1', port='4444'):
         self._socket_init(ip_addr, port)
         self.main_session()
         self.msg_re = re.compile(MSG_RE, re.DOTALL)
+        self.user_info_re = re.compile(USER_INFO_RE)
         self.buf = ''
 
     def __del__(self):
@@ -30,7 +37,7 @@ class Telegram(object):
 
     def send_msg(self, peer, msg):
         peer = peer.replace(' ', '_')
-        cmd = 'msg ' + peer + ' ' + msg;
+        cmd = 'msg ' + peer + ' ' + msg
         self.send_cmd(cmd)
 
     def send_user_msg(self, userid, msg):
@@ -54,6 +61,16 @@ class Telegram(object):
             return g[:1] + g[2:]
         else:
             return None
+
+    def parse_user_info(self, msg):
+        """Parse User Info
+
+        Returns:
+            (userId, Username, Realname) if msg is normal
+            None if else
+        """
+        m = self.user_info_re.match(msg)
+        return m.groups() if m is not None else None
 
     def recv_one_msg(self):
         """Receive one message.
@@ -84,17 +101,22 @@ class Telegram(object):
                 self.buf = self.buf[pos + 2:]
 
                 msg = self.parse_msg(line)
-
-                try:
+                if msg is not None:
                     if msg[1] is not None:
                         target = 'chat#' + msg[1]
                     else:
                         target = 'user#' + msg[2]
                     self.send_cmd('mark_read ' + target)
                     return msg
-                except TypeError:
-                    # is not a message
-                    pass
+
+                info = self.parse_user_info(line)
+                if info is not None:
+                    return info
+
+    def get_user_info(self, user_id):
+        cmd = "user_info user#" + user_id
+        self.send_cmd(cmd)
+
 
 
 if __name__ == '__main__':

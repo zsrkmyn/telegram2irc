@@ -70,28 +70,36 @@ def main_loop():
         tele_init()
         while True:
             msg = tele_conn.recv_one_msg()
+            if len(msg) == 3:
+                # FixMe: dirty-hack, user info
+                userid, username, realname = msg
+                if get_usernick_from_id(userid) is None:
+                    change_usernick(userid, username or realname)
+                continue
             if msg == -1:
                 break
 
             elif msg is not None and msg[2] != tele_me:
+                _time, chatid, userid, content = msg
                 print('[tel] ', *msg)
-                if msg[1] is not None:
+                tele_conn.get_user_info(userid)
+                if chatid is not None:
                     # msg is from chat group
-                    irc_target = get_irc_binding('chat#'+msg[1])
-                elif msg[3].startswith('.'):
+                    irc_target = get_irc_binding('chat#'+chatid)
+                elif content.startswith('.'):
                     # msg is from user and is a command
                     handle_command(msg)
                     irc_target = None
-                elif re.match(r'.?help\s*$', msg[3]):
+                elif re.match(r'.?help\s*$', content):
                     # msg is from user and user needs help
-                    send_help(msg[2])
+                    send_help(userid)
                     irc_target = None
                 else:
                     # msg is from user and is not a command
-                    irc_target = get_irc_binding('user#'+msg[2])
+                    irc_target = get_irc_binding('user#'+userid)
 
                 if irc_target is not None:
-                    nick = get_usernick_from_id(msg[2])
+                    nick = get_usernick_from_id(userid)
                     if nick is None:
                         nick = msg[2]
                     lines = msg[3].split('\n')
@@ -122,12 +130,7 @@ def get_tele_binding(irc_chan):
     return None
 
 def get_usernick_from_id(userid):
-    try:
-        nick = usernicks[userid]
-    except KeyError:
-        nick = None
-
-    return nick
+    return usernicks.get(userid, None)
 
 def change_usernick(userid, newnick):
     usernicks[userid] = newnick
@@ -147,9 +150,9 @@ def invite_to_join(userid, chatlist):
 
         if chat is not None:
             cmd = 'chat_add_user {chat} {user} 0'.format(
-                    chat = chat,
-                    user = 'user#' + userid
-                    )
+                chat=chat,
+                user='user#' + userid
+            )
             tele_conn.send_cmd(cmd)
         else:
             tele_conn.send_user_msg(userid, '{0} is not avaliable. Use `.list` to see avaliable channels'.format(c))
