@@ -9,6 +9,7 @@ USER_INFO_RE = (
     r'User\s+user#(\d+)\s+@([a-zA-Z0-9_\-]*)\s+\(#\d+\):\n'
     r"\s+real\s+name:\s(.+)\n.*"
 )
+WEBPAGE_RE = r'(?P<content>.*)\s\[webpage:\s+url:.+\]$'
 
 
 class Telegram(object):
@@ -17,6 +18,9 @@ class Telegram(object):
         self.main_session()
         self.msg_re = re.compile(MSG_RE, re.DOTALL)
         self.user_info_re = re.compile(USER_INFO_RE)
+        self.content_filter_res = [
+            re.compile(WEBPAGE_RE),
+        ]
         self.buf = ''
 
     def __del__(self):
@@ -48,6 +52,13 @@ class Telegram(object):
         peer = 'chat#' + chatid
         self.send_msg(peer, msg)
 
+    def filter_content(self, content):
+        for r in self.content_filter_res:
+            m = r.match(content)
+            if m is not None:
+                content = m.group("content")
+        return content
+
     def parse_msg(self, msg):
         """Parse message.
 
@@ -58,7 +69,8 @@ class Telegram(object):
         m = self.msg_re.match(msg)
         if m is not None:
             g = m.groups()
-            return g[:1] + g[2:]
+            content = self.filter_content(g[-1])
+            return (g[0], g[2], g[3], content)
         else:
             return None
 
