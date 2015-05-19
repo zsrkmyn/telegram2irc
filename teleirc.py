@@ -71,10 +71,15 @@ def main_loop():
         while True:
             msg = tele_conn.recv_one_msg()
             if len(msg) == 3:
-                # FixMe: dirty-hack, user info
+                # FixMe: dirty-hack, user info  -bigeagle
+                # FIXME: yeah, it's a little bit dirty, and it
+                # has a small bug, people's nick will still be
+                # number if it is the first time (s)he send a
+                # massage. But it is all my fault, not bigeagle's,
+                # because the main code here is poorly designed.
+                # QAQ -WaterA
                 userid, username, realname = msg
-                if get_usernick_from_id(userid) is None:
-                    change_usernick(userid, username or realname)
+                change_usernick(userid, username or realname)
                 continue
             if msg == -1:
                 break
@@ -82,7 +87,6 @@ def main_loop():
             elif msg is not None and msg[2] != tele_me:
                 _time, chatid, userid, content = msg
                 print('[tel] ', *msg)
-                tele_conn.get_user_info(userid)
                 if chatid is not None:
                     # msg is from chat group
                     irc_target = get_irc_binding('chat#'+chatid)
@@ -101,6 +105,7 @@ def main_loop():
                 if irc_target is not None:
                     nick = get_usernick_from_id(userid)
                     if nick is None:
+                        tele_conn.get_user_info(userid)
                         nick = msg[2]
                     lines = msg[3].split('\n')
                     for line in lines:
