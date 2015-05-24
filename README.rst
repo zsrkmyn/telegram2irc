@@ -20,7 +20,7 @@ Usage
    Run ``dialog_list`` to get chat group IDs and run ``contact_list`` to get your IDs. Then
    exit the client.
 
-#. Edit the ``config.py`` file.
+#. Rename the ``config.py.example`` to ``config.py`` and edit it.
 
    #. Set the ``me`` to your IDs to avoid the bot sending duplicated message.
    #. Set ``bindings`` to bind IRC channels with Telegram chats. Elements in ``binddings`` tuple
