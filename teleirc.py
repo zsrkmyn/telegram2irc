@@ -5,6 +5,7 @@ import re
 import threading
 import pickle
 import ssl
+import time
 
 import irc.client
 
@@ -30,6 +31,10 @@ irc_channels = []
 tele_me = None
 
 irc_blacklist = []
+
+def on_pong(connection, event):
+    connection.last_pong = time.time()
+    print('[irc]  PONG from: ', event.source)
 
 def on_connect(connection, event):
     for c in irc_channels:
@@ -58,13 +63,10 @@ def on_privmsg(connection, event):
 def on_nickinuse(connection, event):
     connection.nick(connection.get_nickname() + '_')
 
-def on_disconnect(connection, event):
-    raise SystemExit()
-
 def main_loop():
     def irc_thread():
         reactor = irc_init()
-        reactor.process_forever(None)
+        reactor.process_forever(60)
 
     def tele_thread():
         tele_init()
@@ -212,15 +214,14 @@ def irc_init():
 
     reactor = irc.client.Reactor()
 
-    if usessl:
-        ssl_factory = irc.connection.Factory(wrapper=ssl.wrap_socket)
-
+    irc_conn = reactor.server()
     try:
         if usessl:
-            irc_conn = reactor.server().connect(server, port, nickname,
-                                                connect_factory=ssl_factory)
+            ssl_factory = irc.connection.Factory(wrapper=ssl.wrap_socket)
+            irc_conn.connect(server, port, nickname,
+                    connect_factory=ssl_factory)
         else:
-            irc_conn = reactor.server().connect(server, port, nickname)
+            irc_conn.connect(server, port, nickname)
     except irc.client.ServerConnectionError:
         print(sys.exc_info()[1])
 
@@ -229,8 +230,19 @@ def irc_init():
     irc_conn.add_global_handler("privmsg", on_privmsg)
     irc_conn.add_global_handler("pubmsg", on_privmsg)
     irc_conn.add_global_handler("action", on_privmsg)
-    irc_conn.add_global_handler("disconnect", on_disconnect)
+    irc_conn.add_global_handler("pong", on_pong)
     irc_conn.add_global_handler("nicknameinuse", on_nickinuse)
+
+    irc_conn.last_pong = time.time()
+
+    def keep_alive_ping(connection):
+        if time.time() - connection.last_pong > 360:
+            print('ping timeout! reconnecting...')
+            connection.reconnect()
+            connection.last_pong = time.time()
+        connection.ping(connection.get_server_name())
+
+    reactor.execute_every(60, keep_alive_ping, (irc_conn,))
 
     return reactor
 
