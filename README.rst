@@ -7,6 +7,18 @@ Dependencies
 + `python-irc <https://pypi.python.org/pypi/irc>`_
 + `tg <https://github.com/vysheng/tg>`_
 
+Notice
+======
+A new version of this software is now available at `bigeagle
+<https://github.com/zsrkmyn/telegram2irc/tree/bigeagle>`_ branch. This version includes many great
+features, and is implemented based on JSON data support of telegram-cli. I highly recommad you to
+use the new version to get a better experience.
+
+But I may not merge it into ``master`` branch, for it is mainly written by @bigeagle. I do not
+want to take credit for the work that @bigeagle does. XD
+
+Thanks @bigeagle again for his hard working.
+
 Usage
 =====
 #. If you have not used telegram-cli before, run it first, and set the correct phone number
