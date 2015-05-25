@@ -1,5 +1,5 @@
 #! /usr/bin/env python3
-
+import os
 import sys
 import re
 import threading
@@ -31,6 +31,11 @@ irc_channels = []
 tele_me = None
 
 irc_blacklist = []
+
+usernicks_path = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)),
+    "usernicks"
+)
 
 def on_pong(connection, event):
     connection.last_pong = time.time()
@@ -261,7 +266,7 @@ def tele_init():
 def load_usernicks():
     global usernicks
     try:
-        with open('usernicks', 'rb') as f:
+        with open(usernicks_path, 'rb') as f:
             usernicks = pickle.load(f)
     except Exception:
         usernicks = {}
@@ -269,7 +274,7 @@ def load_usernicks():
 def save_usernicks():
     global usernicks
     try:
-        with open('usernicks', 'wb') as f:
+        with open(usernicks_path, 'wb') as f:
             pickle.dump(usernicks, f, pickle.HIGHEST_PROTOCOL)
     except Exception:
         pass
