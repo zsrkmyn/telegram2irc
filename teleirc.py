@@ -10,7 +10,7 @@ import time
 import irc.client
 
 from telegram import Telegram
-from photostore import Imgur
+from photostore import Imgur, VimCN
 from config import config
 
 help_txt = {
@@ -270,6 +270,8 @@ def photo_store_init():
     if provider == "imgur":
         options = config['photo_store']['options']
         return Imgur(**options)
+    elif provider == "vim-cn":
+        return VimCN()
 
     return None
 

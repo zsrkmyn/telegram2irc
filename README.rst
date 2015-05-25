@@ -33,7 +33,8 @@ Usage
       formated as ``chat#<id>``.
    #. ``blacklist`` in ``irc`` is a list which contains some nicks in IRC. The messages of these
       nicks won't be forwarded to Telegram.
-   #. Set ``client_id`` in ``imgur`` if you registered an API.
+   #. If you want to use imgur, set ``photo_store.provider`` to ``imgur`` and set API ``client_id`` 
+      in ``photo_store.options``.
 
 #. Start the ``telegram-cli`` using ``telegram -d --json -P <port>``, 
    where ``<port>`` is the telegram client port you filled in ``config.py`` file, 

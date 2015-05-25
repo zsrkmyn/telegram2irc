@@ -16,8 +16,8 @@ config = {
     },
     
     'photo_store': {
-		# set one in ("imgur", )
-        'provider': None, 
+		# set one in ("imgur", "vim-cn")
+        'provider': "vim-cn", 
         'options': {
             'client_id': "",
         }
