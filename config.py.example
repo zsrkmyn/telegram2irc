@@ -14,9 +14,12 @@ config = {
         'port'  : 1235              ,
         'me'    : 'user#107279837'  ,
     },
-
-    'imgur': {
-        'client_id': None,
+    'photo_store': {
+        # set one in ("imgur", "vim-cn")
+        'provider': "vim-cn",
+        'options': {
+            'client_id': "",
+        }
     },
 
     'bindings':(

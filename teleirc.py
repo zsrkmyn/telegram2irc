@@ -10,6 +10,7 @@ import time
 import irc.client
 
 from telegram import Telegram
+from photostore import Imgur, VimCN
 from config import config
 
 help_txt = {
@@ -260,8 +261,19 @@ def tele_init():
     server = config['telegram']['server']
     port = config['telegram']['port']
     tele_me = int(config['telegram']['me'].replace('user#', ''))
-    imgur_client_id = config['imgur']['client_id']
-    tele_conn = Telegram(server, port, imgur_client_id)
+    photo_store = photo_store_init()
+    tele_conn = Telegram(server, port, photo_store)
+
+
+def photo_store_init():
+    provider = config['photo_store']['provider']
+    if provider == "imgur":
+        options = config['photo_store']['options']
+        return Imgur(**options)
+    elif provider == "vim-cn":
+        return VimCN()
+
+    return None
 
 def load_usernicks():
     global usernicks
