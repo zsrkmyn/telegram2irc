@@ -14,8 +14,8 @@ config = {
         'port'  : 1235              ,
         'me'    : 'user#107279837'  ,
     },
-    
-	'imgur': {
+
+    'imgur': {
         'client_id': None,
     },
 
