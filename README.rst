@@ -20,6 +20,10 @@ Usage
 #. Run ``telegram-cli --json``. Run ``dialog_list`` to get chat group IDs and 
    run ``contact_list`` to get your IDs. Then exit the client.
 
+#. If you want to send telegram photos to imgur, register a imgur API id on 
+   https://api.imgur.com/oauth2/addclient , select "Anonymous usage" and fill
+   a random URL to callback.
+
 #. Rename the ``config.py.example`` to ``config.py`` and edit it.
 
    #. Set the ``me`` to your user id formated as  ``user#<id>`` to avoid the bot sending 
@@ -29,6 +33,7 @@ Usage
       formated as ``chat#<id>``.
    #. ``blacklist`` in ``irc`` is a list which contains some nicks in IRC. The messages of these
       nicks won't be forwarded to Telegram.
+   #. Set ``client_id`` in ``imgur`` if you registered an API.
 
 #. Start the ``telegram-cli`` using ``telegram -d --json -P <port>``, 
    where ``<port>`` is the telegram client port you filled in ``config.py`` file, 
