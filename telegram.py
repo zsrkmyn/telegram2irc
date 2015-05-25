@@ -2,15 +2,25 @@
 
 from socket import socket, AF_INET, SOCK_STREAM
 import re
+import json
 
-MSG_RE = r'ANSWER\s+\d+\n\[(\d{2}:\d{2})\]\s+(chat#(\d+))?\s+user#(\d+)\s+>>>\s+(.*)'
-USER_INFO_RE = (
-    r"ANSWER\s+\d+\n"
-    r'User\s+user#(\d+)\s+@([a-zA-Z0-9_\-]*)\s+\(#\d+\):\n'
-    r"\s+real\s+name:\s(.+)\n.*"
-)
 WEBPAGE_RE = r'(?P<content>.*)\s\[webpage:\s+url:.+\]$'
 
+class LineBuffer(object):
+    def __init__(self):
+        self.sep = re.compile(r'\r?\n')
+        self.buf = b''
+
+    def feed(self, bytes):
+        self.buf += bytes
+
+    def lines(self):
+        lines = self.sep.split(self.buf)
+        self.buf = lines.pop()
+        return iter(lines)
+
+    def __iter__(self):
+        return self.lines()
 
 class Telegram(object):
     def __init__(self, ip_addr='127.0.0.1', port='4444'):
@@ -21,7 +31,7 @@ class Telegram(object):
         self.content_filter_res = [
             re.compile(WEBPAGE_RE),
         ]
-        self.buf = ''
+        self.buf = LineBuffer()
 
     def __del__(self):
         self.sock.close()
@@ -30,6 +40,45 @@ class Telegram(object):
         s = socket(AF_INET, SOCK_STREAM)
         s.connect((ip_addr, port))
         self.sock = s
+
+    def filter_content(self, content):
+        for r in self.content_filter_res:
+            m = r.match(content)
+            if m is not None:
+                content = m.group("content")
+        return content
+
+    def parse_user_info(self, msg):
+        """Parse User Info
+
+        Returns:
+            (userId, Username, Realname) if msg is normal
+            None if else
+        """
+        m = self.user_info_re.match(msg)
+        return m.groups() if m is not None else None
+
+    def process_recieved(self):
+        """Process messages been recieved.
+
+        Returns:
+            None
+        """
+        for m in self.buf:
+            try:
+                msg = json.loads(m)
+            except ValueError:
+                pass
+            #FIXME: handle msg
+
+    def process_forever(self):
+        while True:
+            self.buf.feed(self.sock.recv(2 ** 12))
+            self.process_recieved()
+
+    def get_user_info(self, user_id):
+        cmd = "user_info user#" + user_id
+        self.send_cmd(cmd)
 
     def send_cmd(self, cmd):
         if '\n' != cmd[-1]:
@@ -51,83 +100,6 @@ class Telegram(object):
     def send_chat_msg(self, chatid, msg):
         peer = 'chat#' + chatid
         self.send_msg(peer, msg)
-
-    def filter_content(self, content):
-        for r in self.content_filter_res:
-            m = r.match(content)
-            if m is not None:
-                content = m.group("content")
-        return content
-
-    def parse_msg(self, msg):
-        """Parse message.
-
-        Returns:
-            (time, chatID, userID, content) if 'msg' is normal.
-            None if else.
-        """
-        m = self.msg_re.match(msg)
-        if m is not None:
-            g = m.groups()
-            content = self.filter_content(g[-1])
-            return (g[0], g[2], g[3], content)
-        else:
-            return None
-
-    def parse_user_info(self, msg):
-        """Parse User Info
-
-        Returns:
-            (userId, Username, Realname) if msg is normal
-            None if else
-        """
-        m = self.user_info_re.match(msg)
-        return m.groups() if m is not None else None
-
-    def recv_one_msg(self):
-        """Receive one message.
-
-        Returns:
-            -1 if connection is closed.
-            (time, chatID, userID, content) if normal.
-        """
-        while True:
-            ret = self.sock.recv(4096)
-
-            if '' == ret:
-                return -1
-
-            try:
-                self.buf += ret.decode('utf-8')
-            except UnicodeDecodeError:
-                self.buf = ''
-
-            while True:
-                try:
-                    pos = self.buf.index('\n\n')
-                except ValueError:
-                    # needs to recv more.
-                    break
-
-                line = self.buf[:pos]
-                self.buf = self.buf[pos + 2:]
-
-                msg = self.parse_msg(line)
-                if msg is not None:
-                    if msg[1] is not None:
-                        target = 'chat#' + msg[1]
-                    else:
-                        target = 'user#' + msg[2]
-                    self.send_cmd('mark_read ' + target)
-                    return msg
-
-                info = self.parse_user_info(line)
-                if info is not None:
-                    return info
-
-    def get_user_info(self, user_id):
-        cmd = "user_info user#" + user_id
-        self.send_cmd(cmd)
 
 
 
