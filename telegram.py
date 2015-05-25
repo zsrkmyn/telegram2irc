@@ -3,7 +3,7 @@ import json
 import pprint
 from socket import socket, AF_INET, SOCK_STREAM
 from collections import namedtuple
-from imgur import Imgur
+from photostore import BasePhotoStore
 
 
 TeleMessage = namedtuple(
@@ -22,11 +22,11 @@ class InvalidMessage(Exception):
 
 
 class Telegram(object):
-    def __init__(self, ip_addr='127.0.0.1', port='4444', imgur_client_id=None):
+    def __init__(self, ip_addr='127.0.0.1', port='4444', photo_store=None):
         self._socket_init(ip_addr, port)
         self.main_session()
-        self.imgur = Imgur(imgur_client_id) \
-            if imgur_client_id is not None else None
+        self.photo_store = photo_store \
+            if isinstance(photo_store, BasePhotoStore) else None
         self.photo_context = None  # PhotoContext if not None
 
     def __del__(self):
@@ -82,7 +82,7 @@ class Telegram(object):
                 if media_type == "photo":
                     photo_id = jmsg["id"]
                     content = "[photo {}]".format(photo_id)
-                    if self.imgur is not None:
+                    if self.photo_store is not None:
                         self.download_photo(photo_id)
                         self.photo_context = \
                             PhotoContext(user_id, username, chat_id, photo_id)
@@ -103,7 +103,7 @@ class Telegram(object):
             if self.photo_context is None:
                 return None
 
-            url = self.imgur.upload_image(filename)
+            url = self.photo_store.upload_image(filename)
             if url is None:
                 return None
 

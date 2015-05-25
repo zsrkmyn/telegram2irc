@@ -4,7 +4,13 @@ import requests
 from base64 import b64encode
 
 
-class Imgur(object):
+class BasePhotoStore(object):
+
+    def upload_image(self, filename):
+        raise Exception("Not Implemented")
+
+
+class Imgur(BasePhotoStore):
 
     url = "https://api.imgur.com/3/image?_format=json"
 

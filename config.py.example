@@ -15,8 +15,12 @@ config = {
         'me'    : 'user#107279837'  ,
     },
     
-	'imgur': {
-        'client_id': None,
+    'photo_store': {
+		# set one in ("imgur", )
+        'provider': None, 
+        'options': {
+            'client_id': "",
+        }
     },
 
     'bindings':(
