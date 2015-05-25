@@ -236,11 +236,15 @@ def irc_init():
     irc_conn.last_pong = time.time()
 
     def keep_alive_ping(connection):
-        if time.time() - connection.last_pong > 360:
-            print('ping timeout! reconnecting...')
+        try:
+            if time.time() - connection.last_pong > 360:
+                raise irc.client.ServerNotConnectedError('ping timeout!')
+                connection.last_pong = time.time()
+            connection.ping(connection.get_server_name())
+        except irc.client.ServerNotConnectedError:
+            print('[irc]  Reconnecting...')
             connection.reconnect()
             connection.last_pong = time.time()
-        connection.ping(connection.get_server_name())
 
     reactor.execute_every(60, keep_alive_ping, (irc_conn,))
 
@@ -281,7 +285,7 @@ def main():
 
     try:
         main_loop()
-    except Exception:
+    except (Exception, KeyboardInterrupt):
         try:
             irc_conn.quit('Bye')
             irc_conn = None
