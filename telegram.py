@@ -1,27 +1,33 @@
 #!/usr/bin/env python3
-
+import json
+import pprint
 from socket import socket, AF_INET, SOCK_STREAM
-import re
+from collections import namedtuple
+from imgur import Imgur
 
-MSG_RE = r'ANSWER\s+\d+\n\[(\d{2}:\d{2})\]\s+(chat#(\d+))?\s+user#(\d+)\s+>>>\s+(.*)'
-USER_INFO_RE = (
-    r"ANSWER\s+\d+\n"
-    r'User\s+user#(\d+)\s+@([a-zA-Z0-9_\-]*)\s+\(#\d+\):\n'
-    r"\s+real\s+name:\s(.+)\n.*"
+
+TeleMessage = namedtuple(
+    'TeleMessage',
+    ('user_id', 'username', 'chat_id', 'content')
 )
-WEBPAGE_RE = r'(?P<content>.*)\s\[webpage:\s+url:.+\]$'
+
+PhotoContext = namedtuple(
+    'PhotoContext',
+    ('user_id', 'username', 'chat_id', 'photo_id')
+)
+
+
+class InvalidMessage(Exception):
+    pass
 
 
 class Telegram(object):
-    def __init__(self, ip_addr='127.0.0.1', port='4444'):
+    def __init__(self, ip_addr='127.0.0.1', port='4444', imgur_client_id=None):
         self._socket_init(ip_addr, port)
         self.main_session()
-        self.msg_re = re.compile(MSG_RE, re.DOTALL)
-        self.user_info_re = re.compile(USER_INFO_RE)
-        self.content_filter_res = [
-            re.compile(WEBPAGE_RE),
-        ]
-        self.buf = ''
+        self.imgur = Imgur(imgur_client_id) \
+            if imgur_client_id is not None else None
+        self.photo_context = None  # PhotoContext if not None
 
     def __del__(self):
         self.sock.close()
@@ -52,37 +58,92 @@ class Telegram(object):
         peer = 'chat#' + chatid
         self.send_msg(peer, msg)
 
-    def filter_content(self, content):
-        for r in self.content_filter_res:
-            m = r.match(content)
-            if m is not None:
-                content = m.group("content")
-        return content
+    def download_photo(self, msg_id):
+        self.send_cmd("load_photo" + ' ' + str(msg_id))
 
-    def parse_msg(self, msg):
+    def parse_msg(self, jmsg):
         """Parse message.
 
         Returns:
-            (time, chatID, userID, content) if 'msg' is normal.
+            TeleMessage(user_id, username, chat_id, content) if jmsg is normal
             None if else.
         """
-        m = self.msg_re.match(msg)
-        if m is not None:
-            g = m.groups()
-            content = self.filter_content(g[-1])
-            return (g[0], g[2], g[3], content)
-        else:
-            return None
+        mtype = jmsg.get('event', None)
 
-    def parse_user_info(self, msg):
-        """Parse User Info
+        if mtype == "message":
+            from_info = jmsg["from"]
+            user_id, username = from_info["id"], from_info.get("username", "")
+
+            to_info = jmsg["to"]
+            chat_id = to_info["id"] if to_info["type"] == "chat" else None
+
+            if "text" not in jmsg:
+                media_type = jmsg.get("media", {}).get("type", None)
+                if media_type == "photo":
+                    photo_id = jmsg["id"]
+                    content = "[photo {}]".format(photo_id)
+                    if self.imgur is not None:
+                        self.download_photo(photo_id)
+                        self.photo_context = \
+                            PhotoContext(user_id, username, chat_id, photo_id)
+                else:
+                    content = "[{}]".format(media_type)
+            else:
+                content = jmsg["text"]
+
+            return TeleMessage(
+                user_id=user_id, username=username,
+                chat_id=chat_id, content=content)
+
+        elif mtype == "download":
+            # should be `{'result': '/paht/to/image.jpg', 'type': 'download'}`
+            filename = jmsg.get("result", None)
+            if filename is None:
+                return None
+            if self.photo_context is None:
+                return None
+
+            url = self.imgur.upload_image(filename)
+            if url is None:
+                return None
+
+            ctx = self.photo_context
+            self.photo_context = None
+
+            return TeleMessage(
+                user_id=ctx.user_id,
+                username=ctx.username,
+                chat_id=ctx.chat_id,
+                content="{} (photo {})".format(url, ctx.photo_id)
+            )
+
+        return None
+
+    def recv_header(self):
+        """Receive and parse message head like `ANSWER XXX\n`
 
         Returns:
-            (userId, Username, Realname) if msg is normal
-            None if else
+            next message size
         """
-        m = self.user_info_re.match(msg)
-        return m.groups() if m is not None else None
+
+        # states = ("ANS", "NUM")
+        state = "ANS"
+        ans = b""
+        size = b""
+        while 1:
+            r = self.sock.recv(1)
+            if state == "ANS":
+                if r == b" " and ans == b"ANSWER":
+                    state = "NUM"
+                else:
+                    ans = ans + r
+            elif state == "NUM":
+                if r == b"\n":
+                    break
+                else:
+                    size = size + r
+
+        return int(size) + 1
 
     def recv_one_msg(self):
         """Receive one message.
@@ -92,48 +153,25 @@ class Telegram(object):
             (time, chatID, userID, content) if normal.
         """
         while True:
-            ret = self.sock.recv(4096)
+            buf_size = self.recv_header()
+
+            ret = self.sock.recv(buf_size)
 
             if '' == ret:
                 return -1
 
-            try:
-                self.buf += ret.decode('utf-8')
-            except UnicodeDecodeError:
-                self.buf = ''
+            if ret[-2:] != b"\n\n":
+                print("Error: buffer receive failed")
+                return -1
 
-            while True:
-                try:
-                    pos = self.buf.index('\n\n')
-                except ValueError:
-                    # needs to recv more.
-                    break
-
-                line = self.buf[:pos]
-                self.buf = self.buf[pos + 2:]
-
-                msg = self.parse_msg(line)
-                if msg is not None:
-                    if msg[1] is not None:
-                        target = 'chat#' + msg[1]
-                    else:
-                        target = 'user#' + msg[2]
-                    self.send_cmd('mark_read ' + target)
-                    return msg
-
-                info = self.parse_user_info(line)
-                if info is not None:
-                    return info
-
-    def get_user_info(self, user_id):
-        cmd = "user_info user#" + user_id
-        self.send_cmd(cmd)
-
+            jmsg = json.loads(ret[:-2].decode("utf-8"))
+            # pprint.pprint(msg)
+            return self.parse_msg(jmsg)
 
 
 if __name__ == '__main__':
     tele = Telegram('127.0.0.1', 1235)
-    tele.send_msg('user#67655173', 'hello')
+    # tele.send_msg('user#67655173', 'hello')
     while True:
         ret = tele.recv_one_msg()
         if ret == -1:
