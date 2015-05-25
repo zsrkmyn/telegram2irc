@@ -164,7 +164,11 @@ class Telegram(object):
                 print("Error: buffer receive failed")
                 return -1
 
-            jmsg = json.loads(ret[:-2].decode("utf-8"))
+            try:
+                jmsg = json.loads(ret[:-2].decode("utf-8"))
+            except ValueError:
+                print("Error parsing: ", ret[:-2])
+                return None
             # pprint.pprint(msg)
             return self.parse_msg(jmsg)
 
