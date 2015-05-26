@@ -32,6 +32,16 @@ tele_me = None
 
 irc_blacklist = []
 
+
+def splitmsg(m, size):
+    b = m.encode('utf-8')
+    if len(b) <= size:
+      yield m
+    else:
+      prefix = b[:size].decode('utf-8', errors='ignore')
+      yield prefix
+      yield from splitmsg(m[len(prefix):], size)
+
 def on_pong(connection, event):
     connection.last_pong = time.time()
     print('[irc]  PONG from: ', event.source)
@@ -111,7 +121,7 @@ def main_loop():
                         nick = userid
                     lines = content.split('\n')
                     for line in lines:
-                        for sline in re.findall(r'.{1,510}', line):  # limit message length to 512
+                        for sline in splitmsg(line, 510):  # limit message length to 512
                             irc_conn.privmsg(irc_target, msg_format.format(nick=nick, msg=sline))
 
     tasks = []
