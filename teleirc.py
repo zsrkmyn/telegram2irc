@@ -111,7 +111,7 @@ def main_loop():
                         nick = userid
                     lines = content.split('\n')
                     for line in lines:
-                        for sline in re.findall(r'.{1,510}', line)  # limit message length to 512
+                        for sline in re.findall(r'.{1,510}', line):  # limit message length to 512
                             irc_conn.privmsg(irc_target, msg_format.format(nick=nick, msg=sline))
 
     tasks = []
