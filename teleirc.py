@@ -108,10 +108,11 @@ def main_loop():
                     nick = get_usernick_from_id(userid)
                     if nick is None:
                         tele_conn.get_user_info(userid)
-                        nick = msg[2]
-                    lines = msg[3].split('\n')
+                        nick = userid
+                    lines = content.split('\n')
                     for line in lines:
-                        irc_conn.privmsg(irc_target, msg_format.format(nick=nick, msg=line))
+                        for sline in re.findall(r'.{1,510}', line)  # limit message length to 512
+                            irc_conn.privmsg(irc_target, msg_format.format(nick=nick, msg=sline))
 
     tasks = []
     for i in (irc_thread, tele_thread):
