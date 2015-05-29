@@ -1,4 +1,4 @@
-#! /usr/bin/env python3
+#!/usr/bin/env python3
 
 import sys
 import re
@@ -12,284 +12,318 @@ import irc.client
 from telegram import Telegram
 from config import config
 
-help_txt = {
-    'all'  : 'current avaliable commands are: .nick, .help, .join, .list',
-    'help' : '.help [command] => show help message (for `command`).',
-    'nick' : '.nick <new_nick> => change your nick to `new_nick`, no space allowed.',
-    'join' : '.join <channel> [channel [channel [...]]] => join `channel`(s). Use `.list` to list avaliable channels.',
-    'list' : '.list => list all avaliable chats.',
-}
+def split_message(msg, size):
+    #FIXME
+    pass
 
-msg_format = '[{nick}] {msg}'
+class BotBase(object):
 
-tele_conn = None
-irc_conn = None
-bindings = tuple()
-usernicks = {}
+    help_txt = {
+        'all'  : 'current avaliable commands are: .nick, .help, .join, .list',
+        'help' : '.help [command] => show help message (for `command`).',
+        'nick' : '.nick <new_nick> => change your nick to `new_nick`, no space allowed.',
+        'join' : '.join <channel> [channel [channel [...]]] => join `channel`(s). Use `.list` to list avaliable channels.',
+        'list' : '.list => list all avaliable chats.',
+    }
 
-irc_channels = []
-tele_me = None
+    msg_format = '[{nick}] {msg}'
 
-irc_blacklist = []
+    def __init__(self,
+            tel_server, tel_port, tel_handlers,
+            irc_server, irc_port, irc_nick, irc_usessl,
+            irc_blacklist, irc_handlers,
+            bindings, usernick_file=None):
 
-def on_pong(connection, event):
-    connection.last_pong = time.time()
-    print('[irc]  PONG from: ', event.source)
+        self.tel_connection = None
+        self.irc_connection = None
+        self.bindings = bindings
+        if usernick_file:
+            self.load_usernicks(usernick_file)
+        else:
+            self.load_usernicks()
 
-def on_connect(connection, event):
-    for c in irc_channels:
-        if irc.client.is_channel(c):
-            connection.join(c)
+        self.irc_channels = None
 
-def on_join(connection, event):
-    print('[irc] ', event.source + ' ' + event.target)
+        self.irc_blacklist = []
 
-def on_privmsg(connection, event):
-    print('[irc] ', event.source + ' ' + event.target + ' ' + event.arguments[0])
+        self.irc_init(irc_server, irc_port, irc_nick, irc_usessl, irc_handlers)
+        self.tel_init(tel_server, tel_port, tel_handlers)
 
-    tele_target = get_tele_binding(event.target)
-    irc_nick = event.source[:event.source.index('!')]
-    msg = event.arguments[0]
+    def main_loop(self):
+        def irc_thread():
+            def keep_alive_ping(connection):
+                try:
+                    if time.time() - connection.last_pong > 360:
+                        raise irc.client.ServerNotConnectedError('ping timeout!')
+                        connection.last_pong = time.time()
+                    connection.ping(connection.get_server_name())
+                except irc.client.ServerNotConnectedError:
+                    print('[irc]  Reconnecting...')
+                    connection.reconnect()
+                    connection.last_pong = time.time()
 
-    if tele_target is not None and irc_nick not in irc_blacklist:
-        tele_conn.send_msg(
-                tele_target,
-                msg_format.format(
-                    nick = irc_nick,
-                    msg = msg
+            self.irc_reactor.execute_every(60, keep_alive_ping, (self.irc_connection,))
+            self.irc_reactor.process_forever(60)
+
+        def tel_thread():
+            self.tel_connection.process_loop()
+
+        tasks = []
+        for i in (irc_thread, tel_thread):
+            t = threading.Thread(target=i, args=())
+            t.setDaemon(True)
+            t.start()
+            tasks.append(t)
+
+        for t in tasks:
+            t.join()
+
+
+    def get_irc_binding(self, tel_chat):
+        for binding in self.bindings:
+            if binding[1] == tel_chat:
+                return binding[0]
+        return None
+
+    def get_tel_binding(self, irc_channel):
+        for binding in self.bindings:
+            if binding[0].lower() == irc_channel.lower():
+                return binding[1]
+        return None
+
+    def get_usernick(self, peer):
+        return self.usernicks.get(peer, None)
+
+    def change_usernick(self, peer, newnick):
+        self.usernicks[peer] = newnick
+        self.save_usernicks()
+
+    def send_help(self, peer, help='all'):
+        try:
+            m = self.help_txt[help]
+        except KeyError:
+            m = self.help_txt['all']
+
+        self.tel_connection.send_msg(peer, m)
+
+    def invite_to_join(self, peer, chatlist):
+        for c in chatlist:
+            chat = self.get_tel_binding(c)
+
+            if chat is not None:
+                cmd = 'chat_add_user {chat} {user} 0'.format(
+                    chat=chat,
+                    user=peer,
                 )
-        )
+                self.tel_conn.send_cmd(cmd)
+            else:
+                self.tel_conn.send_msg(peer,
+                        '{0} is not avaliable. Use `.list` to see avaliable channels'.format(c))
 
-def on_nickinuse(connection, event):
-    connection.nick(connection.get_nickname() + '_')
+    def handle_command(self, content, peer):
+        if not content.startswith('.'):
+            return
 
-def main_loop():
-    def irc_thread():
-        reactor = irc_init()
-        reactor.process_forever(60)
+        try:
+            tmp = content.split()
+            cmd = tmp[0][1:].lower()
+            args = tmp[1:]
+        except IndexError:
+            self.send_help(peer)
 
-    def tele_thread():
-        tele_init()
-        while True:
-            msg = tele_conn.recv_one_msg()
-            if len(msg) == 3:
-                # FixMe: dirty-hack, user info  -bigeagle
-                # FIXME: yeah, it's a little bit dirty, and it
-                # has a small bug, people's nick will still be
-                # number if it is the first time (s)he send a
-                # massage. But it is all my fault, not bigeagle's,
-                # because the main code here is poorly designed.
-                # QAQ -WaterA
-                userid, username, realname = msg
-                change_usernick(userid, username or realname)
-                continue
-            if msg == -1:
-                break
+        if cmd == 'nick':
+            try:
+                self.change_usernick(peer, args[0])
+                self.tel_connection.send_msg(peer, 'Your nick has changed to {0}'.format(args[0]))
+            except IndexError:
+                self.send_help(peer, 'nick')
+        elif cmd == 'help':
+            try:
+                self.send_help(peer, args[0])
+            except IndexError:
+                self.send_help(peer, 'help')
+                self.send_help(peer)
+        elif cmd == 'join':
+            if len(args) == 0:
+                self.send_help(peer, 'join')
+            self.invite_to_join(peer, args)
+        elif cmd == 'list':
+            chan = ', '.join(self.irc_channels)
+            self.tel_connection.send_msg(peer, chan)
+        else:
+            self.send_help(peer)
 
-            elif msg is not None and msg[2] != tele_me:
-                _time, chatid, userid, content = msg
-                print('[tel] ', *msg)
-                if chatid is not None:
-                    # msg is from chat group
-                    irc_target = get_irc_binding('chat#'+chatid)
-                elif content.startswith('.'):
-                    # msg is from user and is a command
-                    handle_command(msg)
-                    irc_target = None
-                elif re.match(r'.?help\s*$', content):
-                    # msg is from user and user needs help
-                    send_help(userid)
-                    irc_target = None
-                else:
-                    # msg is from user and is not a command
-                    irc_target = get_irc_binding('user#'+userid)
+    def irc_init(self, server, port, nickname, usessl, handlers):
+        self.irc_channels = [i for i, *_ in self.bindings]
 
-                if irc_target is not None:
-                    nick = get_usernick_from_id(userid)
-                    if nick is None:
-                        tele_conn.get_user_info(userid)
-                        nick = msg[2]
-                    lines = msg[3].split('\n')
-                    for line in lines:
-                        irc_conn.privmsg(irc_target, msg_format.format(nick=nick, msg=line))
+        # use a replacement character for unrecognized byte sequences
+        # see <https://pypi.python.org/pypi/irc>
+        irc.client.ServerConnection.buffer_class.errors = 'replace'
+        reactor = irc.client.Reactor()
+        irc_connection = reactor.server()
 
-    tasks = []
-    for i in (irc_thread, tele_thread):
-        t = threading.Thread(target=i, args=())
-        t.setDaemon(True)
-        t.start()
-        tasks.append(t)
+        try:
+            if usessl:
+                ssl_factory = irc.connection.Factory(wrapper=ssl.wrap_socket)
+                irc_connection.connect(server, port, nickname,
+                        connect_factory=ssl_factory)
+            else:
+                irc_connection.connect(server, port, nickname)
+        except irc.client.ServerConnectionError:
+            print(sys.exc_info()[1])
 
-    for t in tasks:
-        t.join()
+        for event, handler in handlers.items():
+            irc_connection.add_global_handler(event, handler)
+
+        irc_connection.last_pong = time.time()
+
+        self.irc_connection = irc_connection
+        self.irc_reactor = reactor
+
+    def tel_init(self, server, port, handlers):
+        connection = Telegram(server, port)
+        for event, handler in handlers.items():
+            connection.register_handler(event, handler)
+
+        self.tel_connection = connection
+
+    def load_usernicks(self, filename='usernicks'):
+        try:
+            with open(filename, 'rb') as f:
+                self.usernicks = pickle.load(f)
+        except Exception as e:
+            print(e)
+            self.usernicks = {}
+
+    def save_usernicks(self, filename='usernicks'):
+        try:
+            with open(filename, 'wb') as f:
+                pickle.dump(self.usernicks, f, pickle.HIGHEST_PROTOCOL)
+        except Exception:
+            pass
 
 
-def get_irc_binding(tele_chat):
-    for b in bindings:
-        if b[1] == tele_chat:
-            return b[0]
-    return None
+class MainBot(BotBase):
+    def __init__(self, *args, **kwargs):
+        irc_handlers = {
+                "welcome": self.irc_on_connect,
+                "join": self.irc_on_join,
+                "privmsg": self.irc_on_privmsg,
+                "pubmsg": self.irc_on_privmsg,
+                "action": self.irc_on_privmsg,
+                "pong": self.irc_on_pong,
+                "nicknameinuse": self.irc_on_nickinuse,
+        }
+        tel_handlers = {
+                "message": self.tel_on_message,
+        }
+        super().__init__(*args,
+                irc_handlers=irc_handlers,
+                tel_handlers=tel_handlers,
+                **kwargs)
 
-def get_tele_binding(irc_chan):
-    for b in bindings:
-        if b[0] == irc_chan:
-            return b[1]
-    return None
+    def _handler(func):
+        def wrapper(self, *arg, **kwargs):
+            func(self, *arg, **kwargs)
+        return wrapper
 
-def get_usernick_from_id(userid):
-    return usernicks.get(userid, None)
+    @_handler
+    def irc_on_pong(self, connection, event):
+        connection.last_pong = time.time()
+        print('[irc]  PONG from: ', event.source)
 
-def change_usernick(userid, newnick):
-    usernicks[userid] = newnick
-    save_usernicks()
+    @_handler
+    def irc_on_connect(self, connection, event):
+        for channel in self.irc_channels:
+            if irc.client.is_channel(channel):
+                connection.join(channel)
 
-def send_help(userid, help='all'):
-    try:
-        m = help_txt[help]
-    except KeyError:
-        m = help_txt['all']
+    @_handler
+    def irc_on_join(self, connection, event):
+        print('[irc] ', event.source + ' ' + event.target)
 
-    tele_conn.send_user_msg(userid, m)
+    @_handler
+    def irc_on_privmsg(self, connection, event):
+        print('[irc] ', event.source + ' ' + event.target + ' ' + event.arguments[0])
 
-def invite_to_join(userid, chatlist):
-    for c in chatlist:
-        chat = get_tele_binding(c)
+        tel_target = self.get_tel_binding(event.target)
+        irc_nick = event.source[:event.source.index('!')]
+        msg = event.arguments[0]
 
-        if chat is not None:
-            cmd = 'chat_add_user {chat} {user} 0'.format(
-                chat=chat,
-                user='user#' + userid
+        if tel_target is not None and irc_nick not in self.irc_blacklist:
+            self.tel_connection.send_msg(
+                    tel_target,
+                    self.msg_format.format(
+                        nick = irc_nick,
+                        msg = msg
+                    )
             )
-            tele_conn.send_cmd(cmd)
-        else:
-            tele_conn.send_user_msg(userid, '{0} is not avaliable. Use `.list` to see avaliable channels'.format(c))
 
-def handle_command(msg):
-    if not msg[3].startswith('.'):
-        return
+    @_handler
+    def irc_on_nickinuse(self, connection, event):
+        connection.nick(connection.get_nickname() + '_')
 
-    userid = msg[2]
-    try:
-        tmp = msg[3].split()
-        cmd = tmp[0][1:].lower()
-        args = tmp[1:]
-    except IndexError:
-        send_help(userid)
-
-    if cmd == 'nick':
+    @_handler
+    def tel_on_message(self, connection, message):
         try:
-            change_usernick(userid, args[0])
-            tele_conn.send_user_msg(userid, 'Your nick has changed to {0}'.format(args[0]))
-        except IndexError:
-            send_help(userid, 'nick')
-    elif cmd == 'help':
-        try:
-            send_help(userid, args[0])
-        except IndexError:
-            send_help(userid, 'help')
-            send_help(userid)
-    elif cmd == 'join':
-        if len(args) == 0:
-            send_help(userid, 'join')
-        invite_to_join(userid, args)
-    elif cmd == 'list':
-        chan = ', '.join([i[0] for i in bindings])
-        tele_conn.send_user_msg(userid, chan)
-    else:
-        send_help(userid)
+            from_peer = message['from']['print_name']
+            from_peer_id = message['from']['id'].__str__()
+            from_type = message['from']['type']
+            to_peer = message['to']['print_name']
+            to_peer_id = message['to']['id'].__str__()
+            to_type = message['to']['type']
+            is_out = message['out']
+            content = message['text']  # delete this line if need handle image
+        except KeyError:
+            return
 
-def irc_init():
-    global irc_channels
-    global irc_conn
+        #content = message.get('text', None) or message.get('media', None)
 
-    irc_channels = [i[0] for i in config['bindings']]
-    server = config['irc']['server']
-    port = config['irc']['port']
-    nickname = config['irc']['nick']
-    usessl = config['irc']['ssl']
+        if is_out:
+            return
 
-    # use a replacement character for unrecognized byte sequences
-    # see <https://pypi.python.org/pypi/irc>
-    irc.client.ServerConnection.buffer_class.errors = 'replace'
+        print('[tel] ', from_peer, to_peer, content)
+        if to_type == 'chat':         # msg is from a chat and need to forward to irc
+            to_peer_title = message['to']['title']
+            irc_target = self.get_irc_binding('chat#'+to_peer_id) or \
+                    self.get_irc_binding(to_peer_title)
+        elif content.startswith('.'): # msg is from user and is a command
+            self.handle_command(content, from_peer)
+            return
+        else:                         # msg is from user and user needs help
+            self.send_help(from_peer)
+            return
 
-    reactor = irc.client.Reactor()
+        if irc_target is not None:
+            nick = self.get_usernick(from_peer) or \
+                    self.get_usernick(from_peer_id) or \
+                    from_peer.replace(' ', '_')
 
-    irc_conn = reactor.server()
-    try:
-        if usessl:
-            ssl_factory = irc.connection.Factory(wrapper=ssl.wrap_socket)
-            irc_conn.connect(server, port, nickname,
-                    connect_factory=ssl_factory)
-        else:
-            irc_conn.connect(server, port, nickname)
-    except irc.client.ServerConnectionError:
-        print(sys.exc_info()[1])
-
-    irc_conn.add_global_handler("welcome", on_connect)
-    irc_conn.add_global_handler("join", on_join)
-    irc_conn.add_global_handler("privmsg", on_privmsg)
-    irc_conn.add_global_handler("pubmsg", on_privmsg)
-    irc_conn.add_global_handler("action", on_privmsg)
-    irc_conn.add_global_handler("pong", on_pong)
-    irc_conn.add_global_handler("nicknameinuse", on_nickinuse)
-
-    irc_conn.last_pong = time.time()
-
-    def keep_alive_ping(connection):
-        try:
-            if time.time() - connection.last_pong > 360:
-                raise irc.client.ServerNotConnectedError('ping timeout!')
-                connection.last_pong = time.time()
-            connection.ping(connection.get_server_name())
-        except irc.client.ServerNotConnectedError:
-            print('[irc]  Reconnecting...')
-            connection.reconnect()
-            connection.last_pong = time.time()
-
-    reactor.execute_every(60, keep_alive_ping, (irc_conn,))
-
-    return reactor
-
-def tele_init():
-    global tele_conn
-    global tele_me
-
-    server = config['telegram']['server']
-    port = config['telegram']['port']
-    tele_me = config['telegram']['me'].replace('user#', '')
-    tele_conn = Telegram(server, port)
-
-def load_usernicks():
-    global usernicks
-    try:
-        with open('usernicks', 'rb') as f:
-            usernicks = pickle.load(f)
-    except Exception:
-        usernicks = {}
-
-def save_usernicks():
-    global usernicks
-    try:
-        with open('usernicks', 'wb') as f:
-            pickle.dump(usernicks, f, pickle.HIGHEST_PROTOCOL)
-    except Exception:
-        pass
+            lines = content.split('\n')
+            for line in lines:
+                # FIXME: split line if line length is longer than limitation
+                self.irc_connection.privmsg(irc_target, self.msg_format.format(nick=nick, msg=line))
 
 def main():
-    global bindings
-    global irc_blacklist
+    init_args = {
+        'tel_server': config['telegram']['server'],
+        'tel_port': config['telegram']['port'],
+        'irc_blacklist': config['irc']['blacklist'],
+        'irc_server': config['irc']['server'],
+        'irc_port': config['irc']['port'],
+        'irc_nick': config['irc']['nick'],
+        'irc_usessl': config['irc']['ssl'],
+        'bindings': config['bindings'],
+    }
 
-    bindings = config['bindings']
-    irc_blacklist = config['irc']['blacklist']
-    load_usernicks()
-
+    bot = MainBot(**init_args)
     try:
-        main_loop()
+        bot.main_loop()
     except (Exception, KeyboardInterrupt):
         try:
-            irc_conn.quit('Bye')
-            irc_conn = None
-            tele_conn = None # to call __del__ method of Telegram to close connection
+            bot.irc_connection.quit('Bye')
+            bot.irc_connection = None
+            bot.tel_connection = None
         except Exception:
             pass
     finally:
