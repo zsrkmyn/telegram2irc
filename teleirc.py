@@ -111,8 +111,8 @@ class BotBase(object):
             chat = self.get_tel_binding(c)
 
             if chat is not None:
-                cmd = 'chat_add_user {chat} {user} 0'.format(
-                    chat=chat,
+                cmd = 'chat_add_user {chat} {user}'.format(
+                    chat=chat.replace(' ', '_').replace('#', '@'),
                     user=peer,
                 )
                 self.tel_connection.send_cmd(cmd)
@@ -148,13 +148,13 @@ class BotBase(object):
                 self.send_help(peer, 'join')
             self.invite_to_join(peer, args)
         elif cmd == 'list':
-            chan = ', '.join(self.irc_channels)
-            self.tel_connection.send_msg(peer, chan)
+            channels = ', '.join([c for c, h in self.irc_channels if h == 0])
+            self.tel_connection.send_msg(peer, channels)
         else:
             self.send_help(peer)
 
     def irc_init(self, server, port, nickname, usessl, handlers):
-        self.irc_channels = [i for i, *_ in self.bindings]
+        self.irc_channels = [(c, h) for c, *_, h in self.bindings]
 
         # use a replacement character for unrecognized byte sequences
         # see <https://pypi.python.org/pypi/irc>
@@ -234,7 +234,7 @@ class MainBot(BotBase):
 
     @_handler
     def irc_on_connect(self, connection, event):
-        for channel in self.irc_channels:
+        for (channel, *_) in self.irc_channels:
             if irc.client.is_channel(channel):
                 connection.join(channel)
 

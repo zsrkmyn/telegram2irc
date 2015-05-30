@@ -19,8 +19,9 @@ Usage
 #. Rename the ``config.py.example`` to ``config.py`` and edit it.
 
    #. Set ``bindings`` to bind IRC channels with Telegram chats. Elements in ``binddings`` tuple
-      are tuples, whose first element is IRC channel and the second element is Telegram chat (either
-      chat ID or chat name is okay).
+      are tuples with three element, whose first element is IRC channel and the second one is
+      Telegram chat (both chat ID and chat name are acceptable) and the third element is either ``0``
+      or ``1``, if ``1`` is set, the channel will *not* be listed in ``.list`` command (See ``.help``).
    #. ``blacklist`` in ``irc`` is a list which contains some nicks in IRC. The messages of these
       nicks won't be forwarded to Telegram.
 
