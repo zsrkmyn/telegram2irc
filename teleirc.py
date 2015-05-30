@@ -115,9 +115,9 @@ class BotBase(object):
                     chat=chat,
                     user=peer,
                 )
-                self.tel_conn.send_cmd(cmd)
+                self.tel_connection.send_cmd(cmd)
             else:
-                self.tel_conn.send_msg(peer,
+                self.tel_connection.send_msg(peer,
                         '{0} is not avaliable. Use `.list` to see avaliable channels'.format(c))
 
     def handle_command(self, content, peer):
