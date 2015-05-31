@@ -28,20 +28,17 @@ Usage
    ``dialog_list`` to check wheather the groups are created successfully. Then exit the
    client.
 
-#. Run ``telegram-cli -I``. ``-I`` is needed to make the client use IDs instead of names.
-   Run ``dialog_list`` to get chat group IDs and run ``contact_list`` to get your IDs. Then
-   exit the client.
-
 #. Rename the ``config.py.example`` to ``config.py`` and edit it.
 
-   #. Set the ``me`` to your IDs to avoid the bot sending duplicated message.
    #. Set ``bindings`` to bind IRC channels with Telegram chats. Elements in ``binddings`` tuple
-      are tuples, whose first element is IRC channel and the second element is Telegram chat ID.
+      are tuples with three element, whose first element is IRC channel and the second one is
+      Telegram chat (both chat ID and chat name are acceptable) and the third element is either ``0``
+      or ``1``, if ``1`` is set, the channel will *not* be listed in ``.list`` command (See ``.help``).
    #. ``blacklist`` in ``irc`` is a list which contains some nicks in IRC. The messages of these
       nicks won't be forwarded to Telegram.
 
-#. Start the ``telegram-cli`` using ``telegram -I -d -P <port>``, where ``<port>`` is the telegram
-   client port you filled in ``config.py`` file, and ``-I`` is needed, ``-d`` is optional.
+#. Start the ``telegram-cli`` using ``telegram-cli --json -d -P <port>``, where ``<port>`` is the telegram
+   client port you filled in ``config.py`` file, and ``-I`` is mandatory, ``-d`` is optional.
 
 #. Start the bot using ``python3 teleirc.py``, then it will join the channels automatically and
    forwards the messages between Telegram and IRC.
@@ -51,6 +48,13 @@ Usage
 
 TODO
 ====
+#. Split IRC message if it is too long.
+
+#. Add restarting function.
+
+#. Write comment for the code.
+
+#. Use logger instead of print.
 
 License
 =======

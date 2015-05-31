@@ -1,8 +1,8 @@
 config = {
     'irc': {
         'server': 'irc.freenode.net',
-        'port'  : 6697              ,
-        'nick'  : 'LittleSen'       ,
+        'port'  : 6697,
+        'nick'  : 'LittleSen',
         'ssl'   : True,
         'blacklist': [
             '[Olaf]',
@@ -10,13 +10,13 @@ config = {
     },
 
     'telegram': {
-        'server': '127.0.0.1'       ,
-        'port'  : 1235              ,
-        'me'    : 'user#107279837'  ,
+        'server': '127.0.0.1',
+        'port'  : 1235,
     },
 
     'bindings':(
-        ('#linuxba', 'chat#8531126') ,
-        ('#archlinux-cn', 'chat#12889958'),
+        ('#linuxba', 'chat#8531126', 0),
+        ('#archlinux-cn', '#archlinux-cn', 1),
+        ('#liuyanbot', '「中文  <-空格」', 0),
     )
 }
