@@ -15,8 +15,8 @@ config = {
     },
 
     'bindings':(
-        ('#linuxba', 'chat#8531126'),
-        ('#archlinux-cn', '#archlinux-cn'),
-        ('#liuyanbot', '「中文  空格测试」'),
+        ('#linuxba', 'chat#8531126', 0),
+        ('#archlinux-cn', '#archlinux-cn', 1),
+        ('#liuyanbot', '「中文  <-空格」', 0),
     )
 }

@@ -25,7 +25,7 @@ Usage
    #. ``blacklist`` in ``irc`` is a list which contains some nicks in IRC. The messages of these
       nicks won't be forwarded to Telegram.
 
-#. Start the ``telegram-cli`` using ``telegram --json -d -P <port>``, where ``<port>`` is the telegram
+#. Start the ``telegram-cli`` using ``telegram-cli --json -d -P <port>``, where ``<port>`` is the telegram
    client port you filled in ``config.py`` file, and ``-I`` is mandatory, ``-d`` is optional.
 
 #. Start the bot using ``python3 teleirc.py``, then it will join the channels automatically and
@@ -39,6 +39,10 @@ TODO
 #. Split IRC message if it is too long.
 
 #. Add restarting function.
+
+#. Write comment for the code.
+
+#. Use logger instead of print.
 
 License
 =======
