@@ -49,8 +49,6 @@ Usage
 
 TODO
 ====
-#. Split IRC message if it is too long.
-
 #. Add restarting function.
 
 #. Write comment for the code.

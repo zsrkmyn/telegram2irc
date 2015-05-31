@@ -13,8 +13,14 @@ from telegram import Telegram
 from config import config
 
 def split_message(msg, size):
-    #FIXME
-    pass
+    b = msg.encode('utf-8')
+    if len(b) <= size:
+        yield msg
+    else:
+        prefix = b[:size].decode('utf-8', errors='ignore')
+        yield prefix
+        yield from split_message(msg[len(prefix):], size)
+
 
 class BotBase(object):
 
@@ -301,8 +307,9 @@ class MainBot(BotBase):
 
             lines = content.split('\n')
             for line in lines:
-                # FIXME: split line if line length is longer than limitation
-                self.irc_connection.privmsg(irc_target, self.msg_format.format(nick=nick, msg=line))
+                for seg in split_message(line, 300):
+                    self.irc_connection.privmsg(irc_target,
+                            self.msg_format.format(nick=nick, msg=seg))
 
 def main():
     init_args = {
