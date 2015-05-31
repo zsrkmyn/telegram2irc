@@ -310,6 +310,7 @@ class MainBot(BotBase):
                 for seg in split_message(line, 300):
                     self.irc_connection.privmsg(irc_target,
                             self.msg_format.format(nick=nick, msg=seg))
+                    time.sleep(1)
 
 def main():
     init_args = {
