@@ -9,13 +9,14 @@ Dependencies
 
 Notice
 ======
-A new version of this software is now available at `bigeagle
-<https://github.com/zsrkmyn/telegram2irc/tree/bigeagle>`_ branch. This version includes many great
-features, and is implemented based on JSON data support of telegram-cli. I highly recommad you to
-use the new version to get a better experience.
+Another version of this software is available at `bigeagle
+<https://github.com/zsrkmyn/telegram2irc/tree/bigeagle>`_ branch. That version is written by
+@bigeagle, which include a picture-uploading function that this branch have not implemented yet.
 
 But I may not merge it into ``master`` branch, for it is mainly written by @bigeagle. I do not
 want to take credit for the work that @bigeagle does. XD
+
+You can choose to use either the two versions of the softeware.
 
 Thanks @bigeagle again for his hard working.
 
