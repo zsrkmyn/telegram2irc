@@ -6,15 +6,15 @@ import json
 
 class LineBuffer(object):
     def __init__(self):
-        self.sep = re.compile(r'\r?\n')
+        self.sep = re.compile(b'\r?\n')
         self.buf = b''
 
     def feed(self, bytes):
         self.buf += bytes
 
     def lines(self):
-        lines = self.sep.split(self.buf.decode('utf-8'))
-        self.buf = lines.pop().encode()
+        lines = self.sep.split(self.buf)
+        self.buf = lines.pop()
         return iter(lines)
 
     def __iter__(self):
@@ -57,7 +57,7 @@ class Telegram(object):
         """
         for m in self.buf:
             try:
-                msg = json.loads(m)
+                msg = json.loads(m.decode('utf-8', errors='ignore'))
             except ValueError as e:
                 continue
 
