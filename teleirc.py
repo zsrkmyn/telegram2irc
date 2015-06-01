@@ -37,7 +37,7 @@ class BotBase(object):
     def __init__(self,
             tel_server, tel_port, tel_handlers,
             irc_server, irc_port, irc_nick, irc_usessl,
-            irc_blacklist, irc_handlers,
+            irc_blacklist, irc_handlers, irc_password,
             bindings, usernick_file=None):
 
         self.tel_connection = None
@@ -49,7 +49,7 @@ class BotBase(object):
             self.load_usernicks()
 
         self.irc_channels = None
-
+        self.irc_password = irc_password
         self.irc_blacklist = []
 
         self.irc_init(irc_server, irc_port, irc_nick, irc_usessl, irc_handlers)
@@ -240,6 +240,14 @@ class MainBot(BotBase):
 
     @_handler
     def irc_on_connect(self, connection, event):
+        if self.irc_password:
+            connection.privmsg(
+                    'nickserv',
+                    'identify {} {}'.format(
+                        connection.get_nickname(),
+                        self.irc_password
+                    )
+            )
         for (channel, *_) in self.irc_channels:
             if irc.client.is_channel(channel):
                 connection.join(channel)
@@ -321,6 +329,7 @@ def main():
         'irc_port': config['irc']['port'],
         'irc_nick': config['irc']['nick'],
         'irc_usessl': config['irc']['ssl'],
+        'irc_password': config['irc']['password'],
         'bindings': config['bindings'],
     }
 

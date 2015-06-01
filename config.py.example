@@ -1,10 +1,11 @@
 config = {
     'irc': {
-        'server': 'irc.freenode.net',
-        'port'  : 6697,
-        'nick'  : 'LittleSen',
-        'ssl'   : True,
-        'blacklist': [
+        'server'    : 'irc.freenode.net',
+        'port'      : 6697,
+        'nick'      : 'LittleSen',
+        'password'  : '',
+        'ssl'       : True,
+        'blacklist' : [
             '[Olaf]',
         ],
     },
