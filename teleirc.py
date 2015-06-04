@@ -115,10 +115,12 @@ class BotBase(object):
     def invite_to_join(self, peer, chatlist):
         for c in chatlist:
             chat = self.get_tel_binding(c)
+            if not (chat.startswith('chat#') or chat.startswith('user#')):
+                chat = chat.replace(' ', '_').replace('#', '@')
 
             if chat is not None:
                 cmd = 'chat_add_user {chat} {user}'.format(
-                    chat=chat.replace(' ', '_').replace('#', '@'),
+                    chat=chat,
                     user=peer,
                 )
                 self.tel_connection.send_cmd(cmd)
@@ -152,7 +154,8 @@ class BotBase(object):
         elif cmd == 'join':
             if len(args) == 0:
                 self.send_help(peer, 'join')
-            self.invite_to_join(peer, args)
+            else:
+                self.invite_to_join(peer, args)
         elif cmd == 'list':
             channels = ', '.join([c for c, h in self.irc_channels if h == 0])
             self.tel_connection.send_msg(peer, channels)
