@@ -115,10 +115,10 @@ class BotBase(object):
     def invite_to_join(self, peer, chatlist):
         for c in chatlist:
             chat = self.get_tel_binding(c)
-            if not (chat.startswith('chat#') or chat.startswith('user#')):
-                chat = chat.replace(' ', '_').replace('#', '@')
 
             if chat is not None:
+                if not (chat.startswith('chat#') or chat.startswith('user#')):
+                    chat = chat.replace(' ', '_').replace('#', '@')
                 cmd = 'chat_add_user {chat} {user}'.format(
                     chat=chat,
                     user=peer,
