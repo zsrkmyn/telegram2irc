@@ -35,7 +35,7 @@ class BotBase(object):
     msg_format = '[{nick}] {msg}'
 
     def __init__(self,
-            tel_server, tel_port, tel_handlers,
+            tel_server, tel_port, tel_blacklist, tel_handlers,
             irc_server, irc_port, irc_nick, irc_usessl,
             irc_blacklist, irc_handlers, irc_password,
             bindings, usernick_file=None):
@@ -50,7 +50,9 @@ class BotBase(object):
 
         self.irc_channels = None
         self.irc_password = irc_password
-        self.irc_blacklist = []
+        self.irc_blacklist = irc_blacklist
+
+        self.tel_blacklist = tel_blacklist
 
         self.irc_init(irc_server, irc_port, irc_nick, irc_usessl, irc_handlers)
         self.tel_init(tel_server, tel_port, tel_handlers)
@@ -311,7 +313,9 @@ class MainBot(BotBase):
             self.send_help(from_peer)
             return
 
-        if irc_target is not None:
+        if irc_target is not None and \
+                from_peer not in self.tel_blacklist and \
+                'user#'+from_peer_id not in self.tel_blacklist :
             nick = self.get_usernick(from_peer) or \
                     self.get_usernick(from_peer_id) or \
                     from_peer.replace(' ', '_')
@@ -327,6 +331,7 @@ def main():
     init_args = {
         'tel_server': config['telegram']['server'],
         'tel_port': config['telegram']['port'],
+        'tel_blacklist': config['telegram']['blacklist']
         'irc_blacklist': config['irc']['blacklist'],
         'irc_server': config['irc']['server'],
         'irc_port': config['irc']['port'],
