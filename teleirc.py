@@ -331,7 +331,7 @@ def main():
     init_args = {
         'tel_server': config['telegram']['server'],
         'tel_port': config['telegram']['port'],
-        'tel_blacklist': config['telegram']['blacklist']
+        'tel_blacklist': config['telegram']['blacklist'],
         'irc_blacklist': config['irc']['blacklist'],
         'irc_server': config['irc']['server'],
         'irc_port': config['irc']['port'],
